@@ -267,8 +267,8 @@ const RootClass = class {
 
         Object.keys(interfaces).forEach(function(interfaceName) {
             const interfaceObject = interfaces[interfaceName];
-            const parentClass = interfaceObject.parent ? `virtualbox.${interfaceObject.parent.name}` : "RootClass";
-            output.push(`virtualbox.${interfaceObject.name} = class ${interfaceObject.name} extends ${parentClass} {`);
+            const parentClass = interfaceObject.parent ? `${interfaceObject.parent.name}` : "RootClass";
+            output.push(`class ${interfaceObject.name} extends ${parentClass} {`);
 
             interfaceObject.methods.filter(method => !method.in.length && /^get/.test(method.name)).forEach(function (method) {
 
@@ -304,9 +304,15 @@ const RootClass = class {
             });
             output.push(`};`);
         });
+
+        output.push('');
         Object.keys(results).forEach(function (keyName) {
             output.push(`virtualbox.${keyName} = ${results[keyName]};`);
         });
+
+        output.push('');
+        output.push(`Object.assign(virtualbox, {${Object.keys(interfaces)}});`);
+
         fs.writeFile(path.join(__dirname, "index.js"), output.join("\n"));
     });
 

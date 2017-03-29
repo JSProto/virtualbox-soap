@@ -14,6 +14,7 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
+    "co": "^4.6.0",
     "sax": "^1.1.4"
   },
   "dependencies": {

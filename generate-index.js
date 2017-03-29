@@ -215,12 +215,21 @@ const virtualbox = module.exports = function (endpoint) {
         });
     });
 };
+
 const errorCodeRegExp = /rc=0x([0-9a-f]{8})/;
 const RootClass = class {
     constructor(__client, __object) {
         this.__client = __client;
         this.__object = __object;
+
+        Object.defineProperty(this, '__client', {
+            enumerable: false
+        });
+        Object.defineProperty(this, '__object', {
+            enumerable: false
+        });
     }
+
     __invoke(name, args) {
         return new Promise((resolve, reject) => {
             this.__client[name](args, (error, result) => {
@@ -239,12 +248,37 @@ const RootClass = class {
             });
         });
     }
+
+    toString() {
+        return this.__object;
+    }
+
+    get[Symbol.toStringTag]() {
+        return this.constructor.name;
+    }
 };`
         ];
+
+        const convertMethodNameToProperty = function(method){
+            return method.replace(/^get/, '').replace(/^[A-Z]{1}[a-z]{1}.*/, function(prop) {
+                return prop.charAt(0).toLowerCase() + prop.slice(1);
+            });
+        }
+
         Object.keys(interfaces).forEach(function(interfaceName) {
             const interfaceObject = interfaces[interfaceName];
             const parentClass = interfaceObject.parent ? `virtualbox.${interfaceObject.parent.name}` : "RootClass";
-            output.push(`virtualbox.${interfaceObject.name} = class extends ${parentClass} {`);
+            output.push(`virtualbox.${interfaceObject.name} = class ${interfaceObject.name} extends ${parentClass} {`);
+
+            interfaceObject.methods.filter(method => !method.in.length && /^get/.test(method.name)).forEach(function (method) {
+
+                let property = convertMethodNameToProperty(method.name);
+
+                output.push(`    get ${property}() {`);
+                output.push(`        return this.${method.name}()`);
+                output.push(`    }`);
+            });
+
             interfaceObject.methods.forEach(function (method) {
                 const args = method.in.map(param => `${JSON.stringify(param.name)}: ${unwrapInputValue(param)}`);
                 const skipThis = interfaceName === "IWebsessionManager";

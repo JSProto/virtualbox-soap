@@ -5,7 +5,7 @@
   "description": "A wrapper for the SOAP API of Virtual Box.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/attester/virtualbox-soap.git"
+    "url": "https://github.com/JSProto/virtualbox-soap.git"
   },
   "main": "index.js",
   "scripts": {

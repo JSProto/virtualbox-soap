@@ -249,6 +249,14 @@ const RootClass = class {
         });
     }
 
+    * toPlainObject (...keys){
+        let obj = {};
+        for (let key of keys) {
+            obj[key] = yield this[key];
+        }
+        return obj;
+    }
+
     toString() {
         return this.__object;
     }
@@ -311,7 +319,7 @@ const RootClass = class {
         });
 
         output.push('');
-        output.push(`Object.assign(virtualbox, {${Object.keys(interfaces)}});`);
+        output.push(`Object.assign(virtualbox, {RootClass,${Object.keys(interfaces)}});`);
 
         fs.writeFile(path.join(__dirname, "index.js"), output.join("\n"));
     });

@@ -162,7 +162,7 @@ const xidlParser = function () {
         const type = param.type;
         if (interfaces[type]) {
             if (param.array) {
-                value = `__result.${param.name} ? __result.${param.name}.map(object => new virtualbox.${type}(this.__client, object)) : []`;
+                value = `__result.${param.name} ? __result.${param.name}.map(handle => new virtualbox.${type}(this.__client, handle)) : []`;
             } else {
                 value = `__result.${param.name} ? new virtualbox.${type}(this.__client, __result.${param.name}) : null`;
             }
@@ -175,9 +175,9 @@ const xidlParser = function () {
         const type = param.type;
         if (interfaces[type]) {
             if (param.array) {
-                value = `${value} ? ${value}.map(object => object.__object) : null`;
+                value = `${value} ? ${value}.map(object => object.__handle) : null`;
             } else {
-                value = `${value} ? ${value}.__object : null`;
+                value = `${value} ? ${value}.__handle : null`;
             }
         }
         return value;
@@ -217,15 +217,15 @@ const virtualbox = module.exports = function (endpoint) {
 };
 
 const errorCodeRegExp = /rc=0x([0-9a-f]{8})/;
-const RootClass = class {
-    constructor(__client, __object) {
-        this.__client = __client;
-        this.__object = __object;
+const VBox_ManagedObject = class {
+    constructor(soap, handle) {
+        this.__client = soap;
+        this.__handle = handle;
 
         Object.defineProperty(this, '__client', {
             enumerable: false
         });
-        Object.defineProperty(this, '__object', {
+        Object.defineProperty(this, '__handle', {
             enumerable: false
         });
     }
@@ -257,8 +257,33 @@ const RootClass = class {
         return obj;
     }
 
+    * get(chains) {
+        let obj = this;
+        chains = chains.split('.');
+
+        for (let chain of chains) {
+            if (typeof obj != 'object') {
+
+                chains.unshift(this.constructor.name);
+
+                let i = chains.lastIndexOf(chain);
+                let key = chains.slice(i).join('.');
+                let methods = chains.slice(0, i).join(':');
+
+                return new Error(\`\${methods}: property '\${key}' not found!\`);
+            }
+            obj = yield obj[chain];
+        }
+
+        return Promise.resolve(obj);
+    }
+
     toString() {
-        return this.__object;
+        return this.__handle;
+    }
+
+    release() {
+        return this.__invoke("IManagedObjectRef_release", {"_this": this.__handle}).then(__result => null);
     }
 
     get[Symbol.toStringTag]() {
@@ -275,8 +300,15 @@ const RootClass = class {
 
         Object.keys(interfaces).forEach(function(interfaceName) {
             const interfaceObject = interfaces[interfaceName];
-            const parentClass = interfaceObject.parent ? `${interfaceObject.parent.name}` : "RootClass";
+            const parentClass = interfaceObject.parent ? `${interfaceObject.parent.name}` : "VBox_ManagedObject";
             output.push(`class ${interfaceObject.name} extends ${parentClass} {`);
+
+            if (interfaceName === "IWebsessionManager") {
+                output.push(`    constructor(soap, handle){`)
+                output.push(`        super(soap, handle);`)
+                output.push(`        soap.websessionManager = this;`)
+                output.push(`    }`)
+            }
 
             interfaceObject.methods.filter(method => !method.in.length && /^get/.test(method.name)).forEach(function (method) {
 
@@ -291,7 +323,7 @@ const RootClass = class {
                 const args = method.in.map(param => `${JSON.stringify(param.name)}: ${unwrapInputValue(param)}`);
                 const skipThis = interfaceName === "IWebsessionManager";
                 if (!skipThis) {
-                    args.push(`"_this": this.__object`);
+                    args.push(`"_this": this.__handle`);
                 }
                 if (method.returnval) {
                     method.returnval.name = "returnval";
@@ -319,7 +351,7 @@ const RootClass = class {
         });
 
         output.push('');
-        output.push(`Object.assign(virtualbox, {RootClass,${Object.keys(interfaces)}});`);
+        output.push(`Object.assign(virtualbox, {VBox_ManagedObject,${Object.keys(interfaces)}});`);
 
         fs.writeFile(path.join(__dirname, "index.js"), output.join("\n"));
     });

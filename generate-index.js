@@ -230,7 +230,7 @@ const VBox_ManagedObject = class {
         });
     }
 
-    __invoke(name, args) {
+    __invoke(name, args, extra) {
         return new Promise((resolve, reject) => {
             this.__client[name](args, (error, result) => {
                 if (error) {
@@ -245,7 +245,7 @@ const VBox_ManagedObject = class {
                 } else {
                     resolve(result);
                 }
-            });
+            }, extra);
         });
     }
 
@@ -283,7 +283,7 @@ const VBox_ManagedObject = class {
     }
 
     release() {
-        return this.__invoke("IManagedObjectRef_release", {"_this": this.__handle}).then(__result => null);
+        return this.__invoke("IManagedObjectRef_release", {"_this": this.__handle}, extra).then(__result => null);
     }
 
     get[Symbol.toStringTag]() {
@@ -338,8 +338,12 @@ const VBox_ManagedObject = class {
                 } else if (method.out.length > 0) {
                     returnBody = `({${method.out.map(param => `${JSON.stringify(param.name)}: ${wrapReturnValue(param)}`)}})`
                 }
-                output.push(`    ${method.name}(${method.in.map(param => '$' + param.name).join(', ')}) {`);
-                output.push(`        return this.__invoke(${JSON.stringify(`${interfaceObject.name}_${method.name}`)}, {${args.join(",")}}).then(__result => ${returnBody});`);
+
+                let params = method.in.map(param => '$' + param.name).join(', ');
+                params += (method.in.length ? ', ' : '') + 'extra = null';
+
+                output.push(`    ${method.name}(${params}) {`);
+                output.push(`        return this.__invoke(${JSON.stringify(`${interfaceObject.name}_${method.name}`)}, {${args.join(", ")}}, extra).then(__result => ${returnBody});`);
                 output.push(`    }`);
             });
             output.push(`};`);

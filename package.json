@@ -10,7 +10,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node index.js",
-    "prepublish": "node generate-index"
+    "preinstall": "node generate-index"
   },
   "license": "Apache-2.0",
   "devDependencies": {
